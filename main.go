@@ -3,10 +3,8 @@ package main
 import (
 	"fmt"
 	"net"
-	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/olekukonko/tablewriter"
 )
@@ -19,13 +17,12 @@ func getAddr(from, to string) []string {
 	stop := net.ParseIP(to).To4()
 	result := make([]string, 0)
 	for {
-
+		result = append(result, start.String())
 		if start[0] == stop[0] && start[1] == stop[1] && start[2] == stop[2] && start[3] == stop[3] {
 			break
 		}
 		prev0, prev1, prev2, prev3 := start[0], start[1], start[2], start[3]
 		start[3]++
-		result = append(result, start.String())
 
 		if start[3] == 0 && prev3 == 255 {
 			start[2]++
@@ -70,22 +67,39 @@ func getData() []string {
 }
 
 func main() {
-
-	client := http.Client{
-		Timeout: 6 * time.Second,
+	f, err := os.Create("result.txt")
+	if err != nil {
+		fmt.Println(err)
 	}
+	defer f.Close()
+
+	table := tablewriter.NewWriter(f)
+	table.SetHeader([]string{"IP", "Miner"})
+
 	data := [][]string{}
 	for _, addr := range getData() {
-
-		resp, err := client.Get("http://" + addr + PORT)
+		//fmt.Println(addr)
+		tcpServer, err := net.ResolveTCPAddr("tcp", addr+":"+PORT)
 		if err != nil {
-			fmt.Println(err)
-			return
+			fmt.Println(err.Error())
+			os.Exit(1)
 		}
-		defer resp.Body.Close()
+
+		conn, err := net.DialTCP("tcp", nil, tcpServer)
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
+		defer conn.Close()
+
+		_, err = conn.Write([]byte(sendData))
+		if err != nil {
+			fmt.Println("Write data failed:", err.Error())
+			os.Exit(1)
+		}
 
 		received := make([]byte, 1024)
-		resp.Body.Read(received)
+		_, err = conn.Read(received)
 		if err != nil {
 			println("Read data failed:", err.Error())
 			os.Exit(1)
@@ -98,14 +112,6 @@ func main() {
 			data = append(data, []string{addr, miner})
 		}
 	}
-	f, err := os.Create("result.txt")
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer f.Close()
-
-	table := tablewriter.NewWriter(f)
-	table.SetHeader([]string{"IP", "Miner"})
 	for _, v := range data {
 		table.Append(v)
 	}
