@@ -68,6 +68,15 @@ func getData() []string {
 }
 
 func main() {
+	f, err := os.Create("result.txt")
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer f.Close()
+
+	table := tablewriter.NewWriter(f)
+	table.SetHeader([]string{"IP", "Miner"})
+
 	data := [][]string{}
 	for _, addr := range getData() {
 		//fmt.Println(addr)
@@ -102,12 +111,8 @@ func main() {
 			replacer := strings.NewReplacer("\"", "", "}", "")
 			miner := replacer.Replace(out[1])
 			data = append(data, []string{addr, miner})
-			//	fmt.Println(data)
 		}
 	}
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"IP", "Miner"})
-
 	for _, v := range data {
 		table.Append(v)
 	}
